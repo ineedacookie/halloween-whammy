@@ -8,8 +8,30 @@
   const status = document.getElementById("esp32-status");
   const encoder = new TextEncoder();
   let connection;
-  if (window.AndroidHaptics) return;
   controls.hidden = false;
+
+  if (window.AndroidBluetooth) {
+    let connected = false;
+    window.addEventListener("esp32-native-status", ({ detail }) => {
+      connected = detail.connected;
+      status.textContent = detail.message;
+      button.textContent = connected ? "Disconnect ESP32" : "Connect ESP32";
+      button.disabled = detail.busy;
+      if (connected) controls.open = false;
+    });
+    button.addEventListener("click", () => {
+      if (connected) window.AndroidBluetooth.disconnect();
+      else {
+        document.dispatchEvent(new Event("whammy-connect"));
+        window.AndroidBluetooth.connect();
+      }
+    });
+    document.addEventListener("whammy-roll-finished", () => {
+      if (connected) window.AndroidBluetooth.sendReady();
+    });
+    window.AndroidBluetooth.sync();
+    return;
+  }
 
   if (!navigator.bluetooth) {
     status.textContent = "Bluetooth unavailable. Open in desktop Chrome.";

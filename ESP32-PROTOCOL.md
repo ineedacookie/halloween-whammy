@@ -1,7 +1,7 @@
 # ESP32 firmware agent handoff
 
 Implement a **Bluetooth Low Energy (BLE) GATT peripheral** for the Halloween
-Whammy browser game. The browser is the central/client. Use BLE GATT rather
+Whammy browser game and Android APK. Both clients are BLE centrals. Use BLE GATT rather
 than a `BluetoothSerial` Classic SPP sketch. USB is only needed for flashing
 or debugging; any USB debug baud rate has no effect on BLE.
 
@@ -18,7 +18,7 @@ Use the [Nordic UART Service UUIDs](https://nrfconnectdocs.nordicsemi.com/ncs/la
 Suggested device name: `Whammy ESP32`. Put the name in the scan response if
 needed to fit the service UUID in advertising. Resume advertising after a
 disconnect. Only send commands when connected and TX notifications are enabled.
-The browser subscribes to TX after connecting. A GATT write response confirms
+Both clients subscribe to TX after connecting. A GATT write response confirms
 delivery of a write; it is separate from the application-level `R` message.
 
 ## Messages and button logic
@@ -60,6 +60,13 @@ Payloads are single ASCII bytes; no JSON, newline, or null terminator is needed.
 - The user connects through the game's **Connect ESP32** button in desktop
   Chrome on localhost or HTTPS. The game uses
   [Web Bluetooth](https://developer.chrome.com/docs/capabilities/bluetooth).
+- The Android APK uses the same **Connect ESP32** control with native BLE,
+  permission prompts, and a device picker. No firmware changes are needed for
+  Android. Leaving the Android app disconnects BLE and resets the game; reset
+  the controller's waiting state on disconnect and resume advertising.
+- Only one game client should connect at a time. Finish GATT notification
+  subscription before accepting physical presses; neither client sends an
+  initial `R` just for connecting.
 
 Hardware acceptance check: connect → press roll → exactly one `P` → exactly one
 `R` → press roll again or stay. Verify held/bouncing buttons cannot repeat spins,

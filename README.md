@@ -55,14 +55,26 @@ on a Bluetooth-enabled Mac or Windows computer. Power the ESP32, expand
 Reconnect from this control after refreshing the game or losing the connection.
 The connection click also enables game audio. Use localhost or HTTPS.
 
+The Android APK also supports the controller through native BLE. Install the
+latest APK, turn on Bluetooth, expand **ESP32**, and tap **Connect ESP32**.
+Allow **Nearby devices** on Android 12 or newer, then select the ESP32 from
+the scan results. Android 8–11 require Location permission and the device's
+Location setting for BLE discovery; the game does not collect location data.
+Leaving the Android app disconnects the controller and resets the game, so
+connect again when you return.
+
 Give the firmware agent [ESP32-PROTOCOL.md](ESP32-PROTOCOL.md) for the exact
-BLE service, characteristics, and button handshake. The computer is the BLE
-central; the ESP32 is the peripheral. There is no baud rate for BLE. This
-controller feature is for the desktop browser, not the Android WebView.
+BLE service, characteristics, and button handshake. Both the computer and
+Android app are BLE centrals; the ESP32 is the peripheral. There is no baud
+rate for BLE. Connect the ESP32 to one game at a time.
 
 ## Project layout
 
 - `app/src/main/assets/`: game UI, rules, sound, and original artwork.
 - `app/src/main/java/com/halloweenwhammy/game/MainActivity.java`: Android shell,
   bundled asset serving, lifecycle handling, and haptics.
+- `app/src/main/java/com/halloweenwhammy/game/Esp32Bluetooth.java`: native Android
+  BLE discovery, permissions, notification subscription, and replies.
+- `app/src/main/assets/esp32-bluetooth.js`: desktop BLE and Android bridge controls.
 - `tests/game-core.test.cjs`: prize odds, round endings, banking, and state rules.
+- `tests/esp32-native-bridge.test.cjs`: native connection UI and completion replies.

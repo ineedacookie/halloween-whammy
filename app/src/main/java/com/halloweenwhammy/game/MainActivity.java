@@ -23,6 +23,7 @@ import java.io.ByteArrayInputStream;
 public class MainActivity extends Activity {
     private static final String GAME_URL = "https://app.halloweenwhammy.local/index.html";
     private WebView webView;
+    private Esp32Bluetooth bluetooth;
     private boolean reloadOnResume;
 
     @Override
@@ -38,7 +39,14 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMediaPlaybackRequiresUserGesture(true);
         webView.addJavascriptInterface(new Haptics(), "AndroidHaptics");
+        bluetooth = new Esp32Bluetooth(this, webView);
+        webView.addJavascriptInterface(bluetooth, "AndroidBluetooth");
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                bluetooth.sync();
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 return true; // The game never navigates away or opens external content.
@@ -112,6 +120,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        bluetooth.setForeground(false);
         webView.evaluateJavascript("window.pauseGame && window.pauseGame()", null);
         webView.onPause();
         super.onPause();
@@ -122,6 +131,7 @@ public class MainActivity extends Activity {
         super.onResume();
         hideSystemBars();
         if (webView != null) {
+            bluetooth.setForeground(true);
             webView.onResume();
             if (reloadOnResume) {
                 reloadOnResume = false;
@@ -138,14 +148,23 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onStop() {
+        bluetooth.disconnect();
         reloadOnResume = true;
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
+        bluetooth.destroy();
+        webView.removeJavascriptInterface("AndroidBluetooth");
         webView.removeJavascriptInterface("AndroidHaptics");
         webView.destroy();
         super.onDestroy();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        bluetooth.onPermissionsResult(requestCode);
     }
 }
