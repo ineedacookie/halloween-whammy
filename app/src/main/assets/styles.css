@@ -44,6 +44,11 @@ button:disabled {
 .esp32-controls summary {
   cursor: pointer;
 }
+.esp32-controls p {
+  margin: 8px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 .esp32-controls button {
   margin-top: 10px;
   padding: 6px 10px;

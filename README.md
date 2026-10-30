@@ -55,6 +55,12 @@ on a Bluetooth-enabled Mac or Windows computer. Power the ESP32, expand
 Reconnect from this control after refreshing the game or losing the connection.
 The connection click also enables game audio. Use localhost or HTTPS.
 
+Chrome discovers boards that advertise the UART service UUID or a name beginning
+with `Whammy` / `whammy`. The UART service and RX/TX characteristics are still
+required after connection. Expand **ESP32** to see the last received button
+payload and the last `R` reply; `Received: none` means no button notification
+has arrived. Connection failures identify the step that failed.
+
 The Android APK also supports the controller through native BLE. Install the
 latest APK, turn on Bluetooth, expand **ESP32**, and tap **Connect ESP32**.
 Allow **Nearby devices** on Android 12 or newer, then select the ESP32 from

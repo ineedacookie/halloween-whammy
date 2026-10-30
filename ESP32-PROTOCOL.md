@@ -21,6 +21,11 @@ disconnect. Only send commands when connected and TX notifications are enabled.
 Both clients subscribe to TX after connecting. A GATT write response confirms
 delivery of a write; it is separate from the application-level `R` message.
 
+The browser can also find a board by an advertised name beginning with
+`Whammy` or `whammy`, even if the service UUID is omitted from advertising.
+The service must still exist in the GATT table. The Android scanner still
+requires the service UUID in advertising, so include it for both clients.
+
 ## Messages and button logic
 
 Payloads are single ASCII bytes; no JSON, newline, or null terminator is needed.
@@ -71,3 +76,22 @@ Payloads are single ASCII bytes; no JSON, newline, or null terminator is needed.
 Hardware acceptance check: connect → press roll → exactly one `P` → exactly one
 `R` → press roll again or stay. Verify held/bouncing buttons cannot repeat spins,
 stay during a spin does nothing, and reconnecting recovers from a missing reply.
+
+## If connected but buttons do nothing
+
+Expand the browser's **ESP32** panel to see **Received** and **Reply**. A successful
+mouse roll should show **Reply: R** after the result. If **Received** stays
+**none** while physical buttons are pressed, inspect the firmware's input and
+notification code:
+
+1. Log physical button edges to USB to confirm GPIO detection and debounce work.
+2. On a roll/stay edge, put ASCII `P`/`S` in the TX characteristic ending in
+   `0003` and send a BLE notification to the subscribed client. Printing to USB
+   or setting the characteristic value without notifying does not deliver input.
+3. Verify the firmware is not suppressing all presses in a waiting state. It
+   should be ready after notification subscription and reset on disconnect.
+4. Log RX writes to USB to confirm the callback sees `R` and rearms the button.
+   A successful GATT write confirms delivery to RX, not that application logic
+   processed it correctly.
+
+Keep these USB diagnostics separate from BLE button messages.
