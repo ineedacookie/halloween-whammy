@@ -51,10 +51,11 @@ public class MainActivity extends Activity {
                 if ("https".equals(uri.getScheme()) && "app.halloweenwhammy.local".equals(uri.getHost())) {
                     String file = uri.getPath().substring(1);
                     if (file.isEmpty()) file = "index.html";
-                    if (file.matches("[a-zA-Z0-9_-]+\\.(html|css|js|jpg)")) {
+                    if (file.matches("[a-zA-Z0-9_-]+\\.(html|css|js|jpg|mp3)")) {
                         String mime = file.endsWith(".html") ? "text/html"
                             : file.endsWith(".css") ? "text/css"
-                            : file.endsWith(".js") ? "application/javascript" : "image/jpeg";
+                            : file.endsWith(".js") ? "application/javascript"
+                            : file.endsWith(".mp3") ? "audio/mpeg" : "image/jpeg";
                         try {
                             return new WebResourceResponse(mime, "UTF-8", getAssets().open(file));
                         } catch (java.io.IOException ignored) { }

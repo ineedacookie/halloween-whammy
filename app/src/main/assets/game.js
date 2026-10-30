@@ -21,6 +21,8 @@
   let autoStopTimer;
   let revealTimer;
   let audio;
+  let failSound;
+  let failSource;
 
   const cells = tiles.map(() => {
     const cell = document.createElement("div");
@@ -90,9 +92,36 @@
       if (!audio)
         audio = new (window.AudioContext || window.webkitAudioContext)();
       if (audio.state === "suspended") audio.resume().catch(() => {});
+      if (!failSound)
+        failSound = fetch("fail-whammy.mp3")
+          .then((response) => {
+            if (!response.ok) throw new Error("Failed to load Whammy sound");
+            return response.arrayBuffer();
+          })
+          .then((data) => audio.decodeAudioData(data))
+          .catch(() => null);
     } catch {
       /* Audio is an enhancement. */
     }
+  }
+
+  function stopFailSound() {
+    if (failSource) {
+      failSource.stop();
+      failSource = null;
+    }
+  }
+
+  function playFailSound() {
+    if (!failSound) return;
+    failSound.then((buffer) => {
+      if (!buffer || audio.state !== "running" || phase !== "result") return;
+      stopFailSound();
+      failSource = audio.createBufferSource();
+      failSource.buffer = buffer;
+      failSource.connect(audio.destination);
+      failSource.start();
+    });
   }
 
   function highlight(index) {
@@ -127,6 +156,7 @@
     $("result-dialog").close();
     clearTimeout(revealTimer);
     unlockAudio();
+    stopFailSound();
     boardTiles = createTileLayout(state.roundSpins);
     paintBoard();
     target = weightedTarget();
@@ -222,10 +252,11 @@
     $("marquee").classList.remove("rolling");
     $("marquee").classList.toggle("round-lost", state.loss);
     if (playEffects) {
-      const notes = prize ? [523, 659, 784] : [196, 147, 110];
-      notes.forEach((frequency, index) =>
-        playTone(frequency, 0.22, index * 0.13, prize ? "sine" : "triangle"),
-      );
+      if (prize) {
+        [523, 659, 784].forEach((frequency, index) =>
+          playTone(frequency, 0.22, index * 0.13),
+        );
+      } else playFailSound();
       if (window.AndroidHaptics) window.AndroidHaptics.pulse(prize === 0);
       else if (navigator.vibrate)
         navigator.vibrate(prize ? 45 : [140, 60, 240]);
@@ -253,6 +284,7 @@
   }
 
   function nextRound() {
+    stopFailSound();
     state = newRound(state);
     boardTiles = createTileLayout(0, randomIndex, false);
     paintBoard();
@@ -282,6 +314,7 @@
     }
   });
   window.pauseGame = () => {
+    stopFailSound();
     clearTimeout(revealTimer);
     if (phase === "rolling" || phase === "stopping") finish(false);
     if (audio) audio.suspend().catch(() => {});
