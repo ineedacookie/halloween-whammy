@@ -20,6 +20,7 @@
   let rollTimer;
   let autoStopTimer;
   let revealTimer;
+  let resultRevealed = false;
   let audio;
   let failSound;
   let failSource;
@@ -153,6 +154,7 @@
 
   function start() {
     if (phase === "rolling" || phase === "stopping" || state.over) return;
+    if (phase === "result" && !resultRevealed) return;
     $("result-dialog").close();
     clearTimeout(revealTimer);
     unlockAudio();
@@ -161,6 +163,7 @@
     paintBoard();
     target = weightedTarget();
     phase = "rolling";
+    resultRevealed = false;
     $("spin-button").hidden = true;
     $("marquee").classList.add("rolling");
     $("spin-label").textContent = "SPINNING…";
@@ -193,6 +196,7 @@
   }
 
   function showResult(prize) {
+    if (resultRevealed || document.hidden) return;
     const whammy = prize === 0;
     const resultDialog = $("result-dialog");
     resultDialog.classList.toggle("whammy", whammy);
@@ -235,7 +239,9 @@
       $("continue-button").textContent = "RISK IT · SPIN AGAIN  ↻";
     }
     $("result-dialog").showModal();
+    resultRevealed = true;
     if (!reducedMotion.matches) $("result-art").classList.add("reveal");
+    document.dispatchEvent(new Event("whammy-roll-finished"));
   }
 
   function finish(playEffects = true) {
@@ -271,6 +277,8 @@
   }
 
   function bank() {
+    if (document.hidden || phase !== "result" || !resultRevealed || state.over)
+      return;
     try {
       state = bankRound(state);
     } catch {
@@ -298,11 +306,19 @@
     $("spin-button").hidden = false;
   }
 
-  $("spin-button").addEventListener("click", () => {
-    if (phase === "rolling" || phase === "stopping") return;
+  function press() {
+    if (document.hidden || phase === "rolling" || phase === "stopping") return;
+    if (phase === "result" && !resultRevealed) return;
     if (state.over) nextRound();
-    else start();
+    start();
+  }
+
+  $("spin-button").addEventListener("click", press);
+  document.addEventListener("whammy-command", ({ detail }) => {
+    if (detail === "P") press();
+    else if (detail === "S" && $("result-dialog").open) bank();
   });
+  document.addEventListener("whammy-connect", unlockAudio);
   $("keep-button").addEventListener("click", bank);
   $("continue-button").addEventListener("click", start);
   $("next-round").addEventListener("click", nextRound);
@@ -321,6 +337,10 @@
   };
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) window.pauseGame();
+    else if (phase === "result" && !resultRevealed) {
+      clearTimeout(revealTimer);
+      showResult(state.lastPrize);
+    }
   });
   updateControls();
   if (state.last >= 0 && boardTiles[state.last]?.treats === state.lastPrize) {

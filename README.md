@@ -47,6 +47,19 @@ Open `http://127.0.0.1:4173`. The preview uses the same game and artwork shipped
 in the APK. Android also adds haptics. The app supports portrait, landscape, and
 reduced-motion settings.
 
+## ESP32 buttons over Bluetooth LE
+
+Run the browser preview and open `http://localhost:4173` in desktop Chrome
+on a Bluetooth-enabled Mac or Windows computer. Power the ESP32, expand
+**ESP32** at the bottom left, click **Connect ESP32**, and select the board.
+Reconnect from this control after refreshing the game or losing the connection.
+The connection click also enables game audio. Use localhost or HTTPS.
+
+Give the firmware agent [ESP32-PROTOCOL.md](ESP32-PROTOCOL.md) for the exact
+BLE service, characteristics, and button handshake. The computer is the BLE
+central; the ESP32 is the peripheral. There is no baud rate for BLE. This
+controller feature is for the desktop browser, not the Android WebView.
+
 ## Project layout
 
 - `app/src/main/assets/`: game UI, rules, sound, and original artwork.

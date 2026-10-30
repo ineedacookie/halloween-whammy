@@ -29,6 +29,29 @@ button:disabled {
 [hidden] {
   display: none !important;
 }
+.esp32-controls {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  z-index: 5;
+  max-width: calc(100vw - 16px);
+  padding: 8px 12px;
+  border: 1px solid #a76bc4;
+  border-radius: 10px;
+  background: #21112fee;
+  font-size: 14px;
+}
+.esp32-controls summary {
+  cursor: pointer;
+}
+.esp32-controls button {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid #a76bc4;
+  border-radius: 6px;
+  background: #3c205c;
+  color: var(--paper);
+}
 .game-shell {
   min-height: 100svh;
   max-width: 1220px;
