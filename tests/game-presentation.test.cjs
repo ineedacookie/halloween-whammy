@@ -85,10 +85,11 @@ function createGame() {
     createSource(kind) {
       const context = this;
       const node = {
-        frequency: { setValueAtTime() {} },
+        frequency: { setValueAtTime(value) { node.pitch = value; } },
         connect(destination) { this.destination = destination; return destination; },
-        start() {
-          sounds.push({ kind, at: now, levels: node.destination.levels });
+        start(at = context.currentTime) {
+          sounds.push({ kind, at: now, scheduledAt: at * 1000,
+            frequency: node.pitch, levels: node.destination.levels });
           if (kind === "clip") this.stop(context.currentTime + this.buffer.duration);
         },
         stop(at = context.currentTime) { timeout(() => node.onended?.(), (at - context.currentTime) * 1000); },
@@ -198,4 +199,66 @@ test("Pausing a roll cancels pending sounds and acknowledges only once after ret
   await game.frame();
   assert.equal(game.events.filter(({ type }) => type === "R").length, 1);
   assert.equal(game.sounds.length, 0, "Returning should not replay the paused roll's sounds");
+});
+
+for (const input of ["ESP32 stay", "Bank button"]) {
+  test(`${input} plays one gentle banking celebration without another R`, async () => {
+    const game = createGame();
+    game.press("P");
+    await game.until(() => game.get("result-dialog").open);
+    const count = game.sounds.length;
+    if (input === "ESP32 stay") game.press("S");
+    else game.get("keep-button").dispatchEvent(new Event("click"));
+    assert.equal(game.get("result-dialog").open, false);
+    assert.equal(game.sounds.length, count, "Celebrate after the banking display updates");
+    await game.frame();
+    await game.frame();
+    const celebration = game.sounds.slice(count);
+    assert.deepEqual(celebration.map(({ frequency }) => frequency),
+      [523.25, 659.25, 783.99, 1046.5, 659.25, 783.99]);
+    assert.deepEqual(celebration.map(({ scheduledAt }) => Math.round(scheduledAt - celebration[0].scheduledAt)),
+      [0, 120, 240, 360, 360, 360]);
+    assert.ok(celebration.every(({ levels }) => Math.max(...levels) <= 0.045));
+    assert.equal(game.events.filter(({ type }) => type === "R").length, 1);
+    game.press("S");
+    await game.frame();
+    await game.frame();
+    assert.equal(game.sounds.length, count + 6, "Repeated stay must not replay the celebration");
+  });
+}
+
+test("A new roll cancels the previous round's pending banking celebration", async () => {
+  const game = createGame();
+  game.press("S");
+  await game.frame();
+  await game.frame();
+  assert.equal(game.sounds.length, 0, "An unavailable stay action should be silent");
+  game.press("P");
+  await game.until(() => game.get("result-dialog").open);
+  game.press("S");
+  game.press("P");
+  for (let count = 0; count < 6; count++) await game.frame();
+  assert.equal(game.sounds.some(({ frequency }) => frequency === 523.25), false);
+});
+
+test("Banking more candy earns a longer, richer celebration at the same gentle gain", async () => {
+  const lengths = [];
+  for (const candy of [1, 3, 6, 10]) {
+    const game = createGame();
+    for (let spin = 0; spin < candy; spin++) {
+      game.press("P");
+      await game.until(() => game.get("result-dialog").open);
+    }
+    assert.equal(game.get("keep-button").textContent, `BANK ${candy} ${candy === 1 ? "CANDY" : "CANDIES"}`);
+    const count = game.sounds.length;
+    game.press("S");
+    await game.frame();
+    await game.frame();
+    const celebration = game.sounds.slice(count);
+    lengths.push(celebration.length);
+    assert.ok(celebration.every(({ levels }) => Math.max(...levels) <= 0.045));
+    assert.equal(celebration.at(-3).frequency, 1046.5, "Each melody should resolve to C");
+    assert.equal(game.events.filter(({ type }) => type === "R").length, candy);
+  }
+  assert.deepEqual(lengths, [6, 7, 9, 11]);
 });

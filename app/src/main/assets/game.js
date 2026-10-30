@@ -81,14 +81,14 @@
     $("spin-button").disabled = false;
   }
 
-  function playTone(frequency, duration = 0.045, delay = 0) {
+  function playTone(frequency, duration = 0.045, delay = 0, volume = 0.065) {
     if (!audio || audio.state !== "running") return;
     const oscillator = audio.createOscillator();
     const gain = audio.createGain();
     const start = audio.currentTime + delay;
     oscillator.frequency.setValueAtTime(frequency, start);
     gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.065, start + 0.008);
+    gain.gain.linearRampToValueAtTime(volume, start + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
     oscillator.connect(gain).connect(audio.destination);
     tones.add(oscillator);
@@ -334,6 +334,7 @@
   function bank() {
     if (document.hidden || phase !== "result" || !resultRevealed || state.over)
       return;
+    const banked = state.round;
     try {
       state = bankRound(state);
     } catch {
@@ -344,6 +345,24 @@
     $("result-dialog").close();
     phase = "idle";
     $("spin-button").hidden = false;
+    stopSoundEffects();
+    unlockAudio();
+    afterPaint(() => {
+      if (phase !== "idle" || !state.over || state.loss) return;
+      // A gentle ascending major arpeggio resolves into a celebratory chord.
+      const notes = [523.25, 659.25, 783.99];
+      if (banked >= 3) notes.push(987.77);
+      if (banked >= 6) notes.push(1046.5, 1318.51);
+      if (banked >= 10) notes.push(1567.98, 1318.51);
+      notes.push(1046.5);
+      const finalAt = (notes.length - 1) * 0.12;
+      const finalDuration = 0.52 + Math.min(banked, 10) * 0.02;
+      notes.forEach((frequency, index) =>
+        playTone(frequency, index === notes.length - 1 ? finalDuration : 0.18,
+          index * 0.12, 0.045),
+      );
+      [659.25, 783.99].forEach((frequency) => playTone(frequency, finalDuration, finalAt, 0.022));
+    });
   }
 
   function nextRound() {
