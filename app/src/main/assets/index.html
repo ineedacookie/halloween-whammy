@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#140923" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'"
+    />
+    <title>Halloween Whammy!</title>
+    <link rel="icon" href="board-art.jpg" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="game-core.js" defer></script>
+    <script src="game.js" defer></script>
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Halloween Whammy game">
+      <section class="board-section" aria-label="Halloween prize board">
+        <div class="marquee" id="marquee">
+          <div class="bulbs bulbs-top" aria-hidden="true"></div>
+          <div class="bulbs bulbs-bottom" aria-hidden="true"></div>
+          <div class="bulbs bulbs-left" aria-hidden="true"></div>
+          <div class="bulbs bulbs-right" aria-hidden="true"></div>
+          <div
+            id="board"
+            class="board"
+            role="img"
+            aria-label="Halloween prize squares. Tap Spin to play."
+          ></div>
+          <button class="spin-button board-spin" id="spin-button">
+            <span id="spin-icon" aria-hidden="true">↻</span
+            ><span id="spin-label">SPIN</span>
+          </button>
+        </div>
+      </section>
+      <div
+        id="status"
+        class="visually-hidden"
+        role="status"
+        aria-live="polite"
+      ></div>
+    </main>
+
+    <dialog
+      id="result-dialog"
+      class="result-dialog"
+      aria-labelledby="result-title"
+    >
+      <div id="result-sparkles" class="result-sparkles" aria-hidden="true">
+        ✦　✧　✦
+      </div>
+      <div class="result-art" id="result-art" role="img" aria-label=""></div>
+      <h1 id="result-title"></h1>
+      <p id="result-description"></p>
+      <p class="consolation" id="consolation" hidden>🍬　+1 CANDY</p>
+      <div class="result-actions" id="result-actions">
+        <button class="keep-button" id="keep-button"></button>
+        <button class="spin-button" id="continue-button">SPIN AGAIN　↻</button>
+      </div>
+      <button class="spin-button next-round" id="next-round" hidden>
+        NEXT ROUND　↻
+      </button>
+    </dialog>
+  </body>
+</html>

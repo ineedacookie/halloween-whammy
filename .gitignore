@@ -1,0 +1,9 @@
+.gradle/
+node_modules/
+**/build/
+local.properties
+.DS_Store
+.playwright-cli/
+output/
+*.jks
+*.keystore
