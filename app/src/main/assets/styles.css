@@ -82,9 +82,7 @@ button:disabled {
     0 0 0 6px #67368666,
     0 20px 65px #0007,
     inset 0 0 12px #e1b0ff55;
-  transition:
-    box-shadow 0.4s,
-    border-color 0.4s;
+  transition: border-color 0.4s;
 }
 .marquee.round-lost {
   border-color: #d791ed;
@@ -95,6 +93,7 @@ button:disabled {
   animation: loss-shake 0.48s ease-out both;
 }
 .board {
+  contain: layout paint;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(0, 1fr));
@@ -114,9 +113,20 @@ button:disabled {
   border-radius: 13%;
   background-image: url("board-art.jpg");
   background-repeat: no-repeat;
-  filter: brightness(0.85);
-  transition: filter 320ms ease-out;
   box-shadow: 0 2px 6px #0006;
+}
+.tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #000;
+  opacity: 0.15;
+  pointer-events: none;
+}
+.tile.active::before,
+.tile.winner::before {
+  opacity: 0;
 }
 .tile::after {
   content: "";
@@ -130,21 +140,9 @@ button:disabled {
   box-shadow:
     inset 0 0 5px #fff,
     0 0 14px #ffe49a;
-  transition: opacity 320ms ease-out;
-}
-.tile.active {
-  filter: brightness(1.35);
-  transition-duration: 110ms;
-  transition-timing-function: ease-in;
 }
 .tile.active::after {
   opacity: 1;
-  transition-duration: 110ms;
-  transition-timing-function: ease-in;
-}
-.tile.winner {
-  filter: brightness(1.3);
-  animation: winner-glow 1.3s ease-in-out infinite alternate;
 }
 .tile.winner::after {
   opacity: 1;
@@ -152,6 +150,7 @@ button:disabled {
   box-shadow:
     inset 0 0 8px #fff,
     0 0 12px #ffdd6d;
+  animation: winner-glow 1.3s ease-in-out infinite alternate;
 }
 .bulbs {
   position: absolute;
@@ -202,6 +201,10 @@ button:disabled {
 }
 .marquee.rolling .bulb-odd {
   animation-delay: -250ms !important;
+}
+.marquee.result-open .bulb,
+.marquee.result-open .tile.winner::after {
+  animation-play-state: paused;
 }
 .spin-button {
   display: flex;
@@ -285,7 +288,6 @@ dialog {
 }
 dialog::backdrop {
   background: #0a0313d9;
-  backdrop-filter: blur(7px);
 }
 .result-sparkles {
   margin: 2px 0 10px;
@@ -384,13 +386,11 @@ dialog::backdrop {
 .result-dialog.prize-2 {
   --ray-low: 0.2;
   --ray-high: 0.56;
-  --ray-boost: 1.25;
   --ray-speed: 1.7s;
 }
 .result-dialog.prize-3 {
   --ray-low: 0.52;
   --ray-high: 0.96;
-  --ray-boost: 1.75;
   --ray-speed: 1.05s;
 }
 .result-dialog.prize-2::before,
@@ -469,71 +469,55 @@ dialog::backdrop {
   50%,
   100% {
     opacity: 0.55;
-    filter: brightness(0.9);
   }
   8%,
   18%,
   58%,
   68% {
     opacity: 1;
-    filter: brightness(1.9);
-    box-shadow:
-      0 0 10px #fff4ba,
-      0 0 23px #ffdc62,
-      0 0 36px #ff961b;
   }
   26%,
   76% {
     opacity: 0.55;
-    filter: brightness(0.9);
   }
 }
 @keyframes bulb-toggle {
   0%,
   49.9% {
     opacity: 0.22;
-    filter: brightness(0.55);
-    box-shadow: 0 0 2px #ffb83355;
   }
   50%,
   100% {
     opacity: 1;
-    filter: brightness(2.1);
-    box-shadow:
-      0 0 8px #fff7c1,
-      0 0 18px #ffdc62,
-      0 0 28px #ff961b;
   }
 }
 @keyframes winner-glow {
+  from {
+    opacity: 0.7;
+  }
   to {
-    box-shadow: 0 0 18px #ffe09c;
-    filter: brightness(1.4);
+    opacity: 1;
   }
 }
 @keyframes prize-reveal {
   from {
-    opacity: 0;
-    transform: scale(0.65) rotate(-5deg);
+    transform: scale(0.94) rotate(-2deg);
   }
   to {
-    opacity: 1;
     transform: scale(1) rotate(0);
   }
 }
 @keyframes rays-glow {
   from {
     opacity: var(--ray-low);
-    filter: brightness(0.9);
   }
   to {
     opacity: var(--ray-high);
-    filter: brightness(var(--ray-boost));
   }
 }
 @keyframes sparkle-pulse {
   to {
-    filter: brightness(1.7);
+    opacity: 0.7;
     transform: scale(1.08);
   }
 }
@@ -679,9 +663,6 @@ dialog::backdrop {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-  .tile.active {
-    filter: none;
   }
   .bulb {
     animation-name: none !important;

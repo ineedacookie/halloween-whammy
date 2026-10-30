@@ -5,6 +5,9 @@ prize board fills the mobile screen in portrait and landscape, with a centered
 spin button over the board.
 Tap Spin to roll for one second; it then slows and stops automatically. Choose
 to bank the round's winnings or risk them on another spin.
+The final selected tile remains highlighted for 850 ms before the result opens.
+Sounds follow the visual updates, and the Whammy clip plays at 40% gain with a
+short fade-in. Decorative animations pause behind the result dialog.
 Each successful spin reveals the selected square in a large prize card. Rounds
 can continue until a Whammy: that ends the round, wipes its unbanked candy, and
 adds one consolation candy to the stash. The candy total resets to zero when a

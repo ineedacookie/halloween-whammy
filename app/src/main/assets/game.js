@@ -12,18 +12,26 @@
   } = WhammyGame;
   const $ = (id) => document.getElementById(id);
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const FINAL_TILE_HOLD_MS = 850;
+  const WHAMMY_VOLUME = 0.4;
   let state = cleanState(null);
   let boardTiles = createTileLayout(state.roundSpins, randomIndex, false);
   let phase = "idle";
   let active = -1;
   let target = -1;
-  let rollTimer;
-  let autoStopTimer;
+  let rollFrame;
+  let feedbackFrame;
+  let rollStartedAt;
+  let nextStepAt;
+  let slowStep;
+  let rollId = 0;
   let revealTimer;
   let resultRevealed = false;
+  let resultEffects = false;
   let audio;
   let failSound;
   let failSource;
+  const tones = new Set();
 
   const cells = tiles.map(() => {
     const cell = document.createElement("div");
@@ -73,17 +81,22 @@
     $("spin-button").disabled = false;
   }
 
-  function playTone(frequency, duration = 0.045, delay = 0, wave = "sine") {
+  function playTone(frequency, duration = 0.045, delay = 0) {
     if (!audio || audio.state !== "running") return;
     const oscillator = audio.createOscillator();
     const gain = audio.createGain();
     const start = audio.currentTime + delay;
-    oscillator.type = wave;
     oscillator.frequency.setValueAtTime(frequency, start);
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(0.065, start + 0.008);
     gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
     oscillator.connect(gain).connect(audio.destination);
+    tones.add(oscillator);
+    oscillator.onended = () => {
+      tones.delete(oscillator);
+      oscillator.disconnect();
+      gain.disconnect();
+    };
     oscillator.start(start);
     oscillator.stop(start + duration + 0.01);
   }
@@ -91,7 +104,9 @@
   function unlockAudio() {
     try {
       if (!audio)
-        audio = new (window.AudioContext || window.webkitAudioContext)();
+        audio = new (window.AudioContext || window.webkitAudioContext)({
+          latencyHint: "interactive",
+        });
       if (audio.state === "suspended") audio.resume().catch(() => {});
       if (!failSound)
         failSound = fetch("fail-whammy.mp3")
@@ -115,13 +130,46 @@
 
   function playFailSound() {
     if (!failSound) return;
+    const currentRoll = rollId;
     failSound.then((buffer) => {
-      if (!buffer || audio.state !== "running" || phase !== "result") return;
+      if (!buffer || audio.state !== "running" || phase !== "result"
+          || !resultRevealed || currentRoll !== rollId) return;
       stopFailSound();
-      failSource = audio.createBufferSource();
-      failSource.buffer = buffer;
-      failSource.connect(audio.destination);
-      failSource.start();
+      const source = audio.createBufferSource();
+      const gain = audio.createGain();
+      const start = audio.currentTime;
+      const fadeIn = Math.min(0.015, buffer.duration / 3);
+      const fadeOut = Math.min(0.04, buffer.duration / 3);
+      source.buffer = buffer;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(WHAMMY_VOLUME, start + fadeIn);
+      gain.gain.setValueAtTime(WHAMMY_VOLUME, start + buffer.duration - fadeOut);
+      gain.gain.linearRampToValueAtTime(0, start + buffer.duration);
+      source.connect(gain).connect(audio.destination);
+      source.onended = () => {
+        source.disconnect();
+        gain.disconnect();
+        if (failSource === source) failSource = null;
+      };
+      failSource = source;
+      source.start();
+    });
+  }
+
+  function stopSoundEffects() {
+    cancelAnimationFrame(feedbackFrame);
+    for (const oscillator of tones) oscillator.stop();
+    tones.clear();
+    stopFailSound();
+  }
+
+  function afterPaint(callback) {
+    cancelAnimationFrame(feedbackFrame);
+    // Give the visual update a rendering opportunity before starting its sound.
+    feedbackFrame = requestAnimationFrame(() => {
+      feedbackFrame = requestAnimationFrame(() => {
+        if (!document.hidden) callback();
+      });
     });
   }
 
@@ -145,11 +193,34 @@
     return matches[randomIndex(matches.length)];
   }
 
-  function tick() {
-    if (phase !== "rolling") return;
-    highlight(nextIndex());
-    playTone(450 + (active % 6) * 65);
-    rollTimer = setTimeout(tick, reducedMotion.matches ? 280 : 135);
+  function animateRoll(now) {
+    if (phase !== "rolling" && phase !== "stopping") return;
+    if (phase === "rolling" && now - rollStartedAt >= 1000) {
+      phase = "stopping";
+      nextStepAt = now;
+    }
+    if (now >= nextStepAt) {
+      const slowing = phase === "stopping";
+      const steps = reducedMotion.matches ? 3 : 10;
+      if (slowing) slowStep++;
+      const lastStep = slowing && slowStep === steps;
+      const index = lastStep ? target : nextIndex();
+      highlight(index);
+      afterPaint(() => {
+        if (active === index && (phase === "rolling" || phase === "stopping"
+            || (phase === "result" && !resultRevealed)))
+          playTone((slowing ? 430 : 450) + (index % 6) * 65, slowing ? 0.07 : 0.045);
+      });
+      if (lastStep) {
+        finish();
+        return;
+      }
+      // Do not replay missed ticks in a burst when a slow device drops frames.
+      nextStepAt = now + (slowing
+        ? 135 + Math.pow(slowStep / steps, 2) * 330
+        : reducedMotion.matches ? 280 : 135);
+    }
+    rollFrame = requestAnimationFrame(animateRoll);
   }
 
   function start() {
@@ -158,7 +229,8 @@
     $("result-dialog").close();
     clearTimeout(revealTimer);
     unlockAudio();
-    stopFailSound();
+    stopSoundEffects();
+    rollId++;
     boardTiles = createTileLayout(state.roundSpins);
     paintBoard();
     target = weightedTarget();
@@ -169,30 +241,11 @@
     $("spin-label").textContent = "SPINNING…";
     $("spin-icon").textContent = "↻";
     $("status").textContent = "Spinning. It will stop automatically.";
-    tick();
     $("spin-button").disabled = true;
-    autoStopTimer = setTimeout(stop, 1000);
-  }
-
-  function stop() {
-    if (phase !== "rolling") return;
-    phase = "stopping";
-    clearTimeout(rollTimer);
-    clearTimeout(autoStopTimer);
-    $("spin-label").textContent = "…";
-    $("spin-button").disabled = true;
-    let step = 0;
-    const steps = reducedMotion.matches ? 3 : 10;
-    function slowDown() {
-      if (phase !== "stopping") return;
-      step++;
-      highlight(step === steps ? target : nextIndex());
-      playTone(430 + (active % 6) * 65, 0.07);
-      if (step === steps) finish();
-      else
-        rollTimer = setTimeout(slowDown, 135 + Math.pow(step / steps, 2) * 330);
-    }
-    slowDown();
+    rollStartedAt = performance.now();
+    nextStepAt = rollStartedAt;
+    slowStep = 0;
+    rollFrame = requestAnimationFrame(animateRoll);
   }
 
   function showResult(prize) {
@@ -239,25 +292,11 @@
       $("continue-button").textContent = "RISK IT · SPIN AGAIN  ↻";
     }
     $("result-dialog").showModal();
+    $("marquee").classList.add("result-open");
     resultRevealed = true;
     if (!reducedMotion.matches) $("result-art").classList.add("reveal");
-    document.dispatchEvent(new Event("whammy-roll-finished"));
-  }
-
-  function finish(playEffects = true) {
-    if (phase !== "rolling" && phase !== "stopping") return;
-    clearTimeout(rollTimer);
-    clearTimeout(autoStopTimer);
-    if (target < 0) target = weightedTarget();
-    highlight(target);
-    cells[target].classList.replace("active", "winner");
-    phase = "result";
-    const prize = boardTiles[target].treats;
-    state = applyResult(state, target, boardTiles);
-    updateControls();
-    $("marquee").classList.remove("rolling");
-    $("marquee").classList.toggle("round-lost", state.loss);
-    if (playEffects) {
+    afterPaint(() => {
+      if (phase !== "result" || !resultRevealed || !resultEffects) return;
       if (prize) {
         [523, 659, 784].forEach((frequency, index) =>
           playTone(frequency, 0.22, index * 0.13),
@@ -266,13 +305,29 @@
       if (window.AndroidHaptics) window.AndroidHaptics.pulse(prize === 0);
       else if (navigator.vibrate)
         navigator.vibrate(prize ? 45 : [140, 60, 240]);
-    }
+    });
+    document.dispatchEvent(new Event("whammy-roll-finished"));
+  }
+
+  function finish(playEffects = true) {
+    if (phase !== "rolling" && phase !== "stopping") return;
+    cancelAnimationFrame(rollFrame);
+    if (target < 0) target = weightedTarget();
+    if (active !== target) highlight(target);
+    cells[target].classList.replace("active", "winner");
+    phase = "result";
+    resultEffects = playEffects;
+    const prize = boardTiles[target].treats;
+    state = applyResult(state, target, boardTiles);
+    updateControls();
+    $("marquee").classList.remove("rolling");
+    $("marquee").classList.toggle("round-lost", state.loss);
     revealTimer = setTimeout(
       () => {
         if (phase !== "result" || document.hidden) return;
         showResult(prize);
       },
-      reducedMotion.matches ? 0 : 380,
+      FINAL_TILE_HOLD_MS,
     );
   }
 
@@ -292,7 +347,7 @@
   }
 
   function nextRound() {
-    stopFailSound();
+    stopSoundEffects();
     state = newRound(state);
     boardTiles = createTileLayout(0, randomIndex, false);
     paintBoard();
@@ -323,6 +378,7 @@
   $("continue-button").addEventListener("click", start);
   $("next-round").addEventListener("click", nextRound);
   $("result-dialog").addEventListener("close", () => {
+    $("marquee").classList.remove("result-open");
     $("result-art").classList.remove("reveal");
     if (phase === "result" && !state.over) {
       phase = "idle";
@@ -330,7 +386,7 @@
     }
   });
   window.pauseGame = () => {
-    stopFailSound();
+    stopSoundEffects();
     clearTimeout(revealTimer);
     if (phase === "rolling" || phase === "stopping") finish(false);
     if (audio) audio.suspend().catch(() => {});
